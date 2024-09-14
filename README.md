@@ -1,2 +1,2 @@
-# Color-converter
- RGB-CMYK-LAB
+# Python Color-converter
+ RGB-CMYK-LAB converter

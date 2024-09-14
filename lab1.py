@@ -103,15 +103,15 @@ def lab_to_rgb(l, a, b_lab):
     g = x * -0.9692660 + y * 1.8760108 + z * 0.0415560
     b = x * 0.0556434 + y * -0.2040259 + z * 1.0572252
 
-    def gamma_correct(c):
+    def cor(c):
         if c > 0.0031308:
             return 1.055 * (c ** (1 / 2.4)) - 0.055
         else:
             return 12.92 * c
 
-    r = gamma_correct(r)
-    g = gamma_correct(g)
-    b = gamma_correct(b)
+    r = cor(r)
+    g = cor(g)
+    b = cor(b)
 
     r = min(max(0, r), 1) * 255
     g = min(max(0, g), 1) * 255

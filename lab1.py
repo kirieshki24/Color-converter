@@ -1,10 +1,7 @@
 import customtkinter as ctk
-from tkinter import messagebox, Canvas
-import colorsys
-from skimage import color
-import PIL
+from tkinter import Canvas
 from CTkColorPicker import *
-import numpy as np
+import PIL
 
 def hex_to_rgb(hex):
   return tuple(int(hex[i:i+2], 16) for i in (1, 3, 5))

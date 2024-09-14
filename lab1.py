@@ -6,200 +6,280 @@ import PIL
 from CTkColorPicker import *
 import numpy as np
 
-# Functions for color conversion
-def rgb_to_cmyk(r, g, b_rgb):
-    if (r == 0) and (g == 0) and (b_rgb == 0):
-        return 0, 0, 0, 1
-    c = 1 - r / 255
-    m = 1 - g / 255
-    y = 1 - b_rgb / 255
-    k = min(c, m, y)
-    c = (c - k) / (1 - k)
-    m = (m - k) / (1 - k)
-    y = (y - k) / (1 - k)
-    return round(c * 100), round(m * 100), round(y * 100), round(k * 100)
+def hex_to_rgb(hex):
+  return tuple(int(hex[i:i+2], 16) for i in (1, 3, 5))
+
+def entry_validator(a, b, entry):
+    x = entry.get()
+    if '.' in x:
+        if float(x) < a:
+            return a
+        if float(x) > b:
+            return b
+        return float(x)
+    else:
+        if int(x) < a:
+            return a
+        if int(x) > b:
+            return b
+        return int(x)
+        
+def rgb_to_cmyk(r, g, b):
+    r_norm = r / 255
+    g_norm = g / 255
+    b_norm = b / 255
+    k = 1 - max(r_norm, g_norm, b_norm)
+    if k == 1:
+        c = 0
+        m = 0
+        y = 0
+    else:
+        c = (1 - r_norm - k) / (1 - k)
+        m = (1 - g_norm - k) / (1 - k)
+        y = (1 - b_norm - k) / (1 - k)
+    c = round(c * 100)
+    m = round(m * 100)
+    y = round(y * 100)
+    k = round(k * 100)
+    return c, m, y, k
 
 def cmyk_to_rgb(c, m, y, k):
-    r = 255 * (1 - c / 100) * (1 - k / 100)
-    g = 255 * (1 - m / 100) * (1 - k / 100)
-    b_rgb = 255 * (1 - y / 100) * (1 - k / 100)
-    return round(r), round(g), round(b_rgb)
+    c = c / 100
+    m = m / 100
+    y = y / 100
+    k = k / 100
+    r = 255 * (1 - c) * (1 - k)
+    g = 255 * (1 - m) * (1 - k)
+    b = 255 * (1 - y) * (1 - k)
+    r = round(r)
+    g = round(g)
+    b = round(b)
+    return r, g, b
 
-def rgb_to_lab(r, g, b_rgb):
-    rgb_norm = np.array([r, g, b_rgb]) / 255.0
-    lab = color.rgb2lab(rgb_norm.reshape(1, 1, 3))
-    return tuple(lab.flatten())
+def rgb_to_lab(r, g, b):
+    r = r / 255
+    g = g / 255
+    b = b / 255
+    def inv(c):
+        if c > 0.04045:
+            return ((c + 0.055) / 1.055) ** 2.4
+        else:
+            return c / 12.92
+    r = inv(r)
+    g = inv(g)
+    b = inv(b)
+
+    x = (r * 0.4124564 + g * 0.3575761 + b * 0.1804375) / 0.95047
+    y = (r * 0.2126729 + g * 0.7151522 + b * 0.0721750) 
+    z = (r * 0.0193339 + g * 0.1191920 + b * 0.9503041) / 1.08883
+
+    def f(t):
+        if t > 0.008856:
+            return t ** (1/3)
+        else:
+            return (7.787 * t) + (16 / 116)
+
+    l = (116 * f(y)) - 16
+    a = 500 * (f(x) - f(y))
+    b = 200 * (f(y) - f(z))
+
+    return round(l, 2), round(a, 2), round(b, 2)
 
 def lab_to_rgb(l, a, b_lab):
-    lab = np.array([l, a, b_lab])
-    rgb = color.lab2rgb(lab.reshape(1, 1, 3)) * 255
-    return tuple(np.clip(rgb.flatten(), 0, 255).astype(int))
+    def f_inv(t):
+        if t > 0.2068966:
+            return t ** 3
+        else:
+            return (t - 16 / 116) / 7.787
+
+    y = (l + 16) / 116
+    x = a / 500 + y
+    z = y - b / 200
+    x = 0.95047 * f_inv(x)
+    y = 1.0 * f_inv(y)
+    z = 1.08883 * f_inv(z)
+
+    r = x * 3.2404542 + y * -1.5371385 + z * -0.4985314
+    g = x * -0.9692660 + y * 1.8760108 + z * 0.0415560
+    b = x * 0.0556434 + y * -0.2040259 + z * 1.0572252
+
+    def gamma_correct(c):
+        if c > 0.0031308:
+            return 1.055 * (c ** (1 / 2.4)) - 0.055
+        else:
+            return 12.92 * c
+
+    r = gamma_correct(r)
+    g = gamma_correct(g)
+    b = gamma_correct(b)
+
+    r = min(max(0, r), 1) * 255
+    g = min(max(0, g), 1) * 255
+    b = min(max(0, b), 1) * 255
+
+    return round(r), round(g), round(b)
 
 # GUI Application
 class ColorConverterApp(ctk.CTk):
     def __init__(self):
         super().__init__()
         self.title("Color Converter")
-        self.configure(background="red")
+        self.geometry("470x400")
+        self.resizable(False, False)
 
         # RGB Entries
         self.rgb_label = ctk.CTkLabel(self, text="RGB")
         self.rgb_label.grid(row=0, column=0, padx=10, pady=10)
 
-        self.r_entry = ctk.CTkEntry(self, placeholder_text="R", width=50)
+        self.r_entry = ctk.CTkEntry(self, placeholder_text="R: 0-255", width=80)
         self.r_entry.grid(row=0, column=2, padx=10, pady=10)
-        self.r_entry.bind("<Return>", self.update_rgb_from_entry)
+        self.r_entry.bind("<Return>", self.update_from_rgb)
 
-        self.g_entry = ctk.CTkEntry(self, placeholder_text="G", width=50)
+        self.g_entry = ctk.CTkEntry(self, placeholder_text="G: 0-255", width=80)
         self.g_entry.grid(row=0, column=4, padx=10, pady=10)
-        self.g_entry.bind("<Return>", self.update_rgb_from_entry)
+        self.g_entry.bind("<Return>", self.update_from_rgb)
 
-        self.b_entry = ctk.CTkEntry(self, placeholder_text="B", width=50)
+        self.b_entry = ctk.CTkEntry(self, placeholder_text="B: 0-255", width=80)
         self.b_entry.grid(row=0, column=6, padx=10, pady=10)
-        self.b_entry.bind("<Return>", self.update_rgb_from_entry)
+        self.b_entry.bind("<Return>", self.update_from_rgb)
 
         # CMYK Entries
         self.cmyk_label = ctk.CTkLabel(self, text="CMYK")
         self.cmyk_label.grid(row=1, column=0, padx=10, pady=10)
 
-        self.c_entry = ctk.CTkEntry(self, placeholder_text="C", width=50)
+        self.c_entry = ctk.CTkEntry(self, placeholder_text="C: 0-100", width=80)
         self.c_entry.grid(row=1, column=2, padx=10, pady=10)
-        self.c_entry.bind("<Return>", self.update_cmyk_from_entry)
+        self.c_entry.bind("<Return>", self.update_from_cmyk)
 
-        self.m_entry = ctk.CTkEntry(self, placeholder_text="M", width=50)
+        self.m_entry = ctk.CTkEntry(self, placeholder_text="M: 0-100", width=80)
         self.m_entry.grid(row=1, column=4, padx=10, pady=10)
-        self.m_entry.bind("<Return>", self.update_cmyk_from_entry)
+        self.m_entry.bind("<Return>", self.update_from_cmyk)
 
-        self.y_entry = ctk.CTkEntry(self, placeholder_text="Y", width=50)
+        self.y_entry = ctk.CTkEntry(self, placeholder_text="Y: 0-100", width=80)
         self.y_entry.grid(row=1, column=6, padx=10, pady=10)
-        self.y_entry.bind("<Return>", self.update_cmyk_from_entry)
+        self.y_entry.bind("<Return>", self.update_from_cmyk)
 
-        self.k_entry = ctk.CTkEntry(self, placeholder_text="K", width=50)
+        self.k_entry = ctk.CTkEntry(self, placeholder_text="K: 0-100", width=80)
         self.k_entry.grid(row=1, column=8, padx=10, pady=10)
-        self.k_entry.bind("<Return>", self.update_cmyk_from_entry)
+        self.k_entry.bind("<Return>", self.update_from_cmyk)
 
         # LAB Entries
         self.lab_label = ctk.CTkLabel(self, text="LAB")
         self.lab_label.grid(row=2, column=0, padx=10, pady=10)
 
-        self.l_entry = ctk.CTkEntry(self, placeholder_text="L", width=50)
+        self.l_entry = ctk.CTkEntry(self, placeholder_text="L: 0-100", width=80)
         self.l_entry.grid(row=2, column=2, padx=10, pady=10)
-        self.l_entry.bind("<Return>", self.update_lab_from_entry)
+        self.l_entry.bind("<Return>", self.update_from_lab)
 
-        self.a_entry = ctk.CTkEntry(self, placeholder_text="A", width=50)
+        self.a_entry = ctk.CTkEntry(self, placeholder_text="A: -128-128", width=80)
         self.a_entry.grid(row=2, column=4, padx=10, pady=10)
-        self.a_entry.bind("<Return>", self.update_lab_from_entry)
+        self.a_entry.bind("<Return>", self.update_from_lab)
 
-        self.b_lab_entry = ctk.CTkEntry(self, placeholder_text="B", width=50)
+        self.b_lab_entry = ctk.CTkEntry(self, placeholder_text="B: -128-128", width=80)
         self.b_lab_entry.grid(row=2, column=6, padx=10, pady=10)
-        self.b_lab_entry.bind("<Return>", self.update_lab_from_entry)
+        self.b_lab_entry.bind("<Return>", self.update_from_lab)
 
-        # Button to choose color from palette
-        self.color_palette_button = ctk.CTkButton(self, text="Choose Color", command=self.choose_color, fg_color="blue")
-        self.color_palette_button.grid(row=3, column=0, columnspan=9, padx=10, pady=10)
-
-        self.colorpicker = CTkColorPicker(self, width=300, command=lambda e: print(e))
+        self.colorpicker = CTkColorPicker(self, width=300, command=lambda e: self.choose_color(e))
         self.colorpicker.grid(row = 4, column = 0, columnspan=9, padx=10, pady=10)
+        
 
+    def update_from_rgb(self, event = None):
+        r = entry_validator(0, 255, self.r_entry)
+        g = entry_validator(0, 255, self.g_entry)
+        b_rgb = entry_validator(0, 255, self.b_entry)
+        self.r_entry.delete(0, ctk.END)
+        self.r_entry.insert(0, str(r))
+        self.g_entry.delete(0, ctk.END)
+        self.g_entry.insert(0, str(g))
+        self.b_entry.delete(0, ctk.END)
+        self.b_entry.insert(0, str(b_rgb))    
+        c, m, y, k = rgb_to_cmyk(r, g, b_rgb)
+        l, a, b_lab = rgb_to_lab(r, g, b_rgb)
 
-    def update_from_rgb(self):
-        try:
-            r = int(self.r_entry.get())
-            g = int(self.g_entry.get())
-            b_rgb = int(self.b_entry.get())
-            c, m, y, k = rgb_to_cmyk(r, g, b_rgb)
-            l, a, b_lab = rgb_to_lab(r, g, b_rgb)
+        # Update CMYK entries
+        self.c_entry.delete(0, ctk.END)
+        self.c_entry.insert(0, str(c))
+        self.m_entry.delete(0, ctk.END)
+        self.m_entry.insert(0, str(m))
+        self.y_entry.delete(0, ctk.END)
+        self.y_entry.insert(0, str(y))
+        self.k_entry.delete(0, ctk.END)
+        self.k_entry.insert(0, str(k))
 
-            # Update CMYK entries
-            self.c_entry.delete(0, ctk.END)
-            self.c_entry.insert(0, str(c))
-            self.m_entry.delete(0, ctk.END)
-            self.m_entry.insert(0, str(m))
-            self.y_entry.delete(0, ctk.END)
-            self.y_entry.insert(0, str(y))
-            self.k_entry.delete(0, ctk.END)
-            self.k_entry.insert(0, str(k))
+        # Update LAB entries
+        self.l_entry.delete(0, ctk.END)
+        self.l_entry.insert(0, str(l))
+        self.a_entry.delete(0, ctk.END)
+        self.a_entry.insert(0, str(a))
+        self.b_lab_entry.delete(0, ctk.END)
+        self.b_lab_entry.insert(0, str(b_lab))
 
-            # Update LAB entries
-            self.l_entry.delete(0, ctk.END)
-            self.l_entry.insert(0, str(l))
-            self.a_entry.delete(0, ctk.END)
-            self.a_entry.insert(0, str(a))
-            self.b_lab_entry.delete(0, ctk.END)
-            self.b_lab_entry.insert(0, str(b_lab))
-        except ValueError:
-            messagebox.showwarning("Input Error", "RGB values must be between 0 and 255")
+    def update_from_cmyk(self, event = None):
+        c = entry_validator(0, 100, self.c_entry)
+        m = entry_validator(0, 100, self.m_entry)
+        y = entry_validator(0, 100, self.y_entry)
+        k = entry_validator(0, 100, self.k_entry)
+        self.c_entry.delete(0, ctk.END)
+        self.c_entry.insert(0, str(c))
+        self.m_entry.delete(0, ctk.END)
+        self.m_entry.insert(0, str(m))
+        self.y_entry.delete(0, ctk.END)
+        self.y_entry.insert(0, str(y))
+        self.k_entry.delete(0, ctk.END)
+        self.k_entry.insert(0, str(k))
+        r, g, b_rgb = cmyk_to_rgb(c, m, y, k)
+        l, a, b_lab = rgb_to_lab(r, g, b_rgb)
 
-    def update_rgb_from_entry(self, event=None):
-        self.update_from_rgb()
+        # Update RGB entries
+        self.r_entry.delete(0, ctk.END)
+        self.r_entry.insert(0, str(r))
+        self.g_entry.delete(0, ctk.END)
+        self.g_entry.insert(0, str(g))
+        self.b_entry.delete(0, ctk.END)
+        self.b_entry.insert(0, str(b_rgb))
 
-    def update_from_cmyk(self):
-        try:
-            c = int(self.c_entry.get())
-            m = int(self.m_entry.get())
-            y = int(self.y_entry.get())
-            k = int(self.k_entry.get())
-            r, g, b_rgb = cmyk_to_rgb(c, m, y, k)
-            l, a, b_lab = rgb_to_lab(r, g, b_rgb)
+        # Update LAB entries
+        self.l_entry.delete(0, ctk.END)
+        self.l_entry.insert(0, str(l))
+        self.a_entry.delete(0, ctk.END)
+        self.a_entry.insert(0, str(a))
+        self.b_lab_entry.delete(0, ctk.END)
+        self.b_lab_entry.insert(0, str(b_lab))
 
-            # Update RGB entries
-            self.r_entry.delete(0, ctk.END)
-            self.r_entry.insert(0, str(r))
-            self.g_entry.delete(0, ctk.END)
-            self.g_entry.insert(0, str(g))
-            self.b_entry.delete(0, ctk.END)
-            self.b_entry.insert(0, str(b_rgb))
+    def update_from_lab(self, event = None):
+        l = entry_validator(0, 100, self.l_entry)
+        a = entry_validator(-128, 127, self.a_entry)
+        b_lab = entry_validator(-128, 127, self.b_lab_entry)
+        self.l_entry.delete(0, ctk.END)
+        self.l_entry.insert(0, str(l))
+        self.a_entry.delete(0, ctk.END)
+        self.a_entry.insert(0, str(a))
+        self.b_lab_entry.delete(0, ctk.END)
+        self.b_lab_entry.insert(0, str(b_lab))
+        r, g, b_rgb = lab_to_rgb(l, a, b_lab)
+        c, m, y, k = rgb_to_cmyk(r, g, b_rgb)
 
-            # Update LAB entries
-            self.l_entry.delete(0, ctk.END)
-            self.l_entry.insert(0, str(l))
-            self.a_entry.delete(0, ctk.END)
-            self.a_entry.insert(0, str(a))
-            self.b_lab_entry.delete(0, ctk.END)
-            self.b_lab_entry.insert(0, str(b_lab))
-        except ValueError:
-            messagebox.showwarning("Input Error", "CMYK values must be between 0 and 100")
+        # Update RGB entries
+        self.r_entry.delete(0, ctk.END)
+        self.r_entry.insert(0, str(r))
+        self.g_entry.delete(0, ctk.END)
+        self.g_entry.insert(0, str(g))
+        self.b_entry.delete(0, ctk.END)
+        self.b_entry.insert(0, str(b_rgb))
 
-    def update_cmyk_from_entry(self, event=None):
-        self.update_from_cmyk()
+        # Update CMYK entries
+        self.c_entry.delete(0, ctk.END)
+        self.c_entry.insert(0, str(c))
+        self.m_entry.delete(0, ctk.END)
+        self.m_entry.insert(0, str(m))
+        self.y_entry.delete(0, ctk.END)
+        self.y_entry.insert(0, str(y))
+        self.k_entry.delete(0, ctk.END)
+        self.k_entry.insert(0, str(k))
 
-    def update_from_lab(self):
-        try:
-            l = float(self.l_entry.get())
-            a = float(self.a_entry.get())
-            b_lab = float(self.b_lab_entry.get())
-            r, g, b_rgb = lab_to_rgb(l, a, b_lab)
-            c, m, y, k = rgb_to_cmyk(r, g, b_rgb)
-
-            # Update RGB entries
-            self.r_entry.delete(0, ctk.END)
-            self.r_entry.insert(0, str(r))
-            self.g_entry.delete(0, ctk.END)
-            self.g_entry.insert(0, str(g))
-            self.b_entry.delete(0, ctk.END)
-            self.b_entry.insert(0, str(b_rgb))
-
-            # Update CMYK entries
-            self.c_entry.delete(0, ctk.END)
-            self.c_entry.insert(0, str(c))
-            self.m_entry.delete(0, ctk.END)
-            self.m_entry.insert(0, str(m))
-            self.y_entry.delete(0, ctk.END)
-            self.y_entry.insert(0, str(y))
-            self.k_entry.delete(0, ctk.END)
-            self.k_entry.insert(0, str(k))
-        except ValueError:
-            messagebox.showwarning("Input Error", "L values must be between 0 and 100. A and B values must be between -128 and 127")
-
-    def update_lab_from_entry(self, event=None):
-        self.update_from_lab()
-
-    def choose_color(self):
-        pick_color = AskColor()
-        color = pick_color.get()
-        self.color_palette_button.configure(fg_color = color)
-        if pick_color:
-            r, g, b_rgb = color
+    def choose_color(self, e):
+        if e:
+            r, g, b_rgb = hex_to_rgb(e)
             self.r_entry.delete(0, ctk.END)
             self.r_entry.insert(0, str(r))
             self.g_entry.delete(0, ctk.END)

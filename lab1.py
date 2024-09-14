@@ -1,5 +1,5 @@
 import customtkinter as ctk
-from tkinter import messagebox
+from tkinter import messagebox, Canvas
 import colorsys
 from skimage import color
 import PIL
@@ -8,6 +8,8 @@ import numpy as np
 
 def hex_to_rgb(hex):
   return tuple(int(hex[i:i+2], 16) for i in (1, 3, 5))
+def rgb_to_hex(r, g, b):  
+    return "#{:02x}{:02x}{:02x}".format(r, g, b)
 
 def entry_validator(a, b, entry):
     x = entry.get()
@@ -85,7 +87,7 @@ def rgb_to_lab(r, g, b):
 
     return round(l, 2), round(a, 2), round(b, 2)
 
-def lab_to_rgb(l, a, b_lab):
+def lab_to_rgb(l, a, b):
     def f_inv(t):
         if t > 0.2068966:
             return t ** 3
@@ -123,7 +125,7 @@ class ColorConverterApp(ctk.CTk):
     def __init__(self):
         super().__init__()
         self.title("Color Converter")
-        self.geometry("470x400")
+        self.geometry("470x600")
         self.resizable(False, False)
 
         self.rgb_label = ctk.CTkLabel(self, text="RGB")
@@ -176,8 +178,18 @@ class ColorConverterApp(ctk.CTk):
         self.b_lab_entry.bind("<Return>", self.update_from_lab)
 
         self.colorpicker = CTkColorPicker(self, width=300, command=lambda e: self.choose_color(e))
-        self.colorpicker.grid(row = 4, column = 0, columnspan=9, padx=10, pady=10)
+        self.colorpicker.grid(row = 5, column = 0, columnspan=9, padx=10, pady=10)
+
+        self.canvas = Canvas(self, width=300, height=100, highlightthickness=0)
+        self.canvas.grid(row=4, column=2, columnspan=5, padx=10, pady=10)
+        self.color_rect = self.canvas.create_rectangle(0, 0, 300, 100, fill="white")
+
+        self.error_label = ctk.CTkLabel(self, text="", text_color="red")
+        self.error_label.grid(row=6, column=0, columnspan=9, padx=10, pady=10)
+
         
+    def update_error(self, message):
+        self.error_label.configure(text=message)
 
     def update_from_rgb(self, event = None):
         r = entry_validator(0, 255, self.r_entry)
@@ -191,6 +203,11 @@ class ColorConverterApp(ctk.CTk):
         self.b_entry.insert(0, str(b_rgb))    
         c, m, y, k = rgb_to_cmyk(r, g, b_rgb)
         l, a, b_lab = rgb_to_lab(r, g, b_rgb)
+        self.canvas.itemconfig(self.color_rect, fill=rgb_to_hex(r, g, b_rgb))
+        if (r, g, b_rgb) != cmyk_to_rgb(c, m, y, k) or (r, g, b_rgb) != lab_to_rgb(l, a, b_lab):
+            self.update_error("Обнаружена потеря цвета")
+        else:
+            self.update_error("")
 
         self.c_entry.delete(0, ctk.END)
         self.c_entry.insert(0, str(c))
@@ -223,6 +240,11 @@ class ColorConverterApp(ctk.CTk):
         self.k_entry.insert(0, str(k))
         r, g, b_rgb = cmyk_to_rgb(c, m, y, k)
         l, a, b_lab = rgb_to_lab(r, g, b_rgb)
+        self.canvas.itemconfig(self.color_rect, fill=rgb_to_hex(r, g, b_rgb))
+        if (c, m, y, k) != rgb_to_cmyk(r, g, b_rgb) or (c, m, y, k) != rgb_to_cmyk(lab_to_rgb(l, a, b_lab)):
+            self.update_error("Обнаружена потеря цвета")
+        else:
+            self.update_error("")
 
         self.r_entry.delete(0, ctk.END)
         self.r_entry.insert(0, str(r))
@@ -250,6 +272,11 @@ class ColorConverterApp(ctk.CTk):
         self.b_lab_entry.insert(0, str(b_lab))
         r, g, b_rgb = lab_to_rgb(l, a, b_lab)
         c, m, y, k = rgb_to_cmyk(r, g, b_rgb)
+        self.canvas.itemconfig(self.color_rect, fill=rgb_to_hex(r, g, b_rgb))
+        if (l, a, b_lab) != rgb_to_lab(r, g, b_rgb) or (l, a, b_lab) != rgb_to_lab(*cmyk_to_rgb(c, m, y, k)):
+            self.update_error("Обнаружена потеря цвета")
+        else:
+            self.update_error("")
 
         self.r_entry.delete(0, ctk.END)
         self.r_entry.insert(0, str(r))

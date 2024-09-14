@@ -119,7 +119,6 @@ def lab_to_rgb(l, a, b_lab):
 
     return round(r), round(g), round(b)
 
-# GUI Application
 class ColorConverterApp(ctk.CTk):
     def __init__(self):
         super().__init__()
@@ -127,7 +126,6 @@ class ColorConverterApp(ctk.CTk):
         self.geometry("470x400")
         self.resizable(False, False)
 
-        # RGB Entries
         self.rgb_label = ctk.CTkLabel(self, text="RGB")
         self.rgb_label.grid(row=0, column=0, padx=10, pady=10)
 
@@ -143,7 +141,6 @@ class ColorConverterApp(ctk.CTk):
         self.b_entry.grid(row=0, column=6, padx=10, pady=10)
         self.b_entry.bind("<Return>", self.update_from_rgb)
 
-        # CMYK Entries
         self.cmyk_label = ctk.CTkLabel(self, text="CMYK")
         self.cmyk_label.grid(row=1, column=0, padx=10, pady=10)
 
@@ -163,7 +160,6 @@ class ColorConverterApp(ctk.CTk):
         self.k_entry.grid(row=1, column=8, padx=10, pady=10)
         self.k_entry.bind("<Return>", self.update_from_cmyk)
 
-        # LAB Entries
         self.lab_label = ctk.CTkLabel(self, text="LAB")
         self.lab_label.grid(row=2, column=0, padx=10, pady=10)
 
@@ -196,7 +192,6 @@ class ColorConverterApp(ctk.CTk):
         c, m, y, k = rgb_to_cmyk(r, g, b_rgb)
         l, a, b_lab = rgb_to_lab(r, g, b_rgb)
 
-        # Update CMYK entries
         self.c_entry.delete(0, ctk.END)
         self.c_entry.insert(0, str(c))
         self.m_entry.delete(0, ctk.END)
@@ -206,7 +201,6 @@ class ColorConverterApp(ctk.CTk):
         self.k_entry.delete(0, ctk.END)
         self.k_entry.insert(0, str(k))
 
-        # Update LAB entries
         self.l_entry.delete(0, ctk.END)
         self.l_entry.insert(0, str(l))
         self.a_entry.delete(0, ctk.END)
@@ -230,7 +224,6 @@ class ColorConverterApp(ctk.CTk):
         r, g, b_rgb = cmyk_to_rgb(c, m, y, k)
         l, a, b_lab = rgb_to_lab(r, g, b_rgb)
 
-        # Update RGB entries
         self.r_entry.delete(0, ctk.END)
         self.r_entry.insert(0, str(r))
         self.g_entry.delete(0, ctk.END)
@@ -238,7 +231,6 @@ class ColorConverterApp(ctk.CTk):
         self.b_entry.delete(0, ctk.END)
         self.b_entry.insert(0, str(b_rgb))
 
-        # Update LAB entries
         self.l_entry.delete(0, ctk.END)
         self.l_entry.insert(0, str(l))
         self.a_entry.delete(0, ctk.END)
@@ -259,7 +251,6 @@ class ColorConverterApp(ctk.CTk):
         r, g, b_rgb = lab_to_rgb(l, a, b_lab)
         c, m, y, k = rgb_to_cmyk(r, g, b_rgb)
 
-        # Update RGB entries
         self.r_entry.delete(0, ctk.END)
         self.r_entry.insert(0, str(r))
         self.g_entry.delete(0, ctk.END)
@@ -267,7 +258,6 @@ class ColorConverterApp(ctk.CTk):
         self.b_entry.delete(0, ctk.END)
         self.b_entry.insert(0, str(b_rgb))
 
-        # Update CMYK entries
         self.c_entry.delete(0, ctk.END)
         self.c_entry.insert(0, str(c))
         self.m_entry.delete(0, ctk.END)

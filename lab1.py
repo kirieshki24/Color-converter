@@ -1,7 +1,6 @@
 import customtkinter as ctk
 from tkinter import Canvas
 from CTkColorPicker import *
-import PIL
 
 def hex_to_rgb(hex):
   return tuple(int(hex[i:i+2], 16) for i in (1, 3, 5))
